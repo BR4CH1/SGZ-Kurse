@@ -4,7 +4,7 @@ import { courseCategories } from './data/courses'
 import { bookOnePlace, loadCourses, resetLocalCourseState, saveCourses } from './lib/courseStore'
 import type { CourseCategory, CourseOffering, RegistrationFormData } from './types'
 
-type Screen = 'home' | 'courses' | 'register' | 'success' | 'admin'
+type Screen = 'home' | 'days' | 'courses' | 'register' | 'success' | 'admin'
 
 type SuccessState = {
   participantName: string
@@ -12,6 +12,88 @@ type SuccessState = {
   courseTitle: string
   courseNumber: string
 } | null
+
+type CustomerGroupKey = 'kinder' | 'praevention' | 'fitness' | 'wasser' | 'tanz' | 'wellness'
+
+type CustomerGroup = {
+  key: CustomerGroupKey
+  title: string
+  description: string
+  spritePosition: string
+  matches: (course: CourseOffering) => boolean
+}
+
+const danceCoursePattern = /zumba|dance|tanz/i
+
+const customerGroups: CustomerGroup[] = [
+  {
+    key: 'kinder',
+    title: 'Kinderkurse',
+    description: 'Schwimmen, Bewegung & Spaß für Kinder',
+    spritePosition: '0% 0%',
+    matches: (course) => course.category === 'Kinder & Jugend im Bad',
+  },
+  {
+    key: 'praevention',
+    title: 'Präventionskurse',
+    description: 'Gesundheit fördern & Beschwerden vorbeugen',
+    spritePosition: '50% 0%',
+    matches: (course) => course.category === 'AOK-Kurse' || course.category === 'Präventionskurse §20',
+  },
+  {
+    key: 'fitness',
+    title: 'Fitnesskurse',
+    description: 'Kraft, Ausdauer & Energie',
+    spritePosition: '100% 0%',
+    matches: (course) => course.category === 'Fitness & Halle' && !danceCoursePattern.test(course.title),
+  },
+  {
+    key: 'wasser',
+    title: 'Wasserkurse',
+    description: 'Aqua-Fitness & Bewegung im Wasser',
+    spritePosition: '0% 100%',
+    matches: (course) => course.category === 'Wasser & Schwimmen Erwachsene',
+  },
+  {
+    key: 'tanz',
+    title: 'Tanzkurse',
+    description: 'Zumba® & Bewegung zur Musik',
+    spritePosition: '50% 100%',
+    matches: (course) => course.category === 'Fitness & Halle' && danceCoursePattern.test(course.title),
+  },
+  {
+    key: 'wellness',
+    title: 'Wellness & mehr',
+    description: 'Entspannung, Balance & Wohlbefinden',
+    spritePosition: '100% 100%',
+    matches: (course) => course.category === 'Wellness & Entspannung',
+  },
+]
+
+const weekdayOrder = ['Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag', 'Sonntag']
+
+function getWeekdays(courses: CourseOffering[]): string[] {
+  return Array.from(new Set(courses.map((course) => course.weekday))).sort((a, b) => {
+    const aIndex = weekdayOrder.indexOf(a)
+    const bIndex = weekdayOrder.indexOf(b)
+    if (aIndex === -1 && bIndex === -1) return a.localeCompare(b, 'de')
+    if (aIndex === -1) return 1
+    if (bIndex === -1) return -1
+    return aIndex - bIndex
+  })
+}
+
+function sortCourses(courses: CourseOffering[]): CourseOffering[] {
+  return [...courses].sort((a, b) => {
+    const dayA = weekdayOrder.indexOf(a.weekday)
+    const dayB = weekdayOrder.indexOf(b.weekday)
+    const safeDayA = dayA === -1 ? 99 : dayA
+    const safeDayB = dayB === -1 ? 99 : dayB
+    const dateA = a.startDate ?? '9999-12-31'
+    const dateB = b.startDate ?? '9999-12-31'
+    return safeDayA - safeDayB || a.startTime.localeCompare(b.startTime) || dateA.localeCompare(dateB)
+  })
+}
 
 const emptyForm: RegistrationFormData = {
   firstName: '',
@@ -67,7 +149,8 @@ function App() {
   const [screen, setScreen] = useState<Screen>(() =>
     typeof window !== 'undefined' && window.location.hash === '#admin' ? 'admin' : 'home',
   )
-  const [selectedCategory, setSelectedCategory] = useState<CourseCategory | null>(null)
+  const [selectedGroupKey, setSelectedGroupKey] = useState<CustomerGroupKey | null>(null)
+  const [selectedWeekday, setSelectedWeekday] = useState<string | null>(null)
   const [selectedCourseId, setSelectedCourseId] = useState<string | null>(null)
   const [form, setForm] = useState<RegistrationFormData>({ ...emptyForm })
   const [success, setSuccess] = useState<SuccessState>(null)
@@ -81,16 +164,20 @@ function App() {
     [courses],
   )
 
+  const selectedGroup = customerGroups.find((group) => group.key === selectedGroupKey) ?? null
+
+  const selectedGroupCourses = useMemo(() => {
+    if (!selectedGroup) return []
+    return sortCourses(availableCourses.filter((course) => selectedGroup.matches(course)))
+  }, [availableCourses, selectedGroup])
+
+  const groupWeekdays = useMemo(() => getWeekdays(selectedGroupCourses), [selectedGroupCourses])
+  const shouldChooseDay = groupWeekdays.length >= 3 && selectedGroupCourses.length >= 6
+
   const visibleCategoryCourses = useMemo(() => {
-    if (!selectedCategory) return []
-    return availableCourses
-      .filter((course) => course.category === selectedCategory)
-      .sort((a, b) => {
-        const dateA = a.startDate ?? '9999-12-31'
-        const dateB = b.startDate ?? '9999-12-31'
-        return dateA.localeCompare(dateB) || a.startTime.localeCompare(b.startTime)
-      })
-  }, [availableCourses, selectedCategory])
+    if (!selectedWeekday) return selectedGroupCourses
+    return selectedGroupCourses.filter((course) => course.weekday === selectedWeekday)
+  }, [selectedGroupCourses, selectedWeekday])
 
   const filteredAdminCourses = useMemo(() => {
     const query = adminSearch.trim().toLowerCase()
@@ -108,7 +195,8 @@ function App() {
 
   const resetToHome = () => {
     setScreen('home')
-    setSelectedCategory(null)
+    setSelectedGroupKey(null)
+    setSelectedWeekday(null)
     setSelectedCourseId(null)
     setForm({ ...emptyForm })
     setSuccess(null)
@@ -142,8 +230,18 @@ function App() {
     }
   }, [screen])
 
-  const openCategory = (category: CourseCategory) => {
-    setSelectedCategory(category)
+  const openGroup = (groupKey: CustomerGroupKey) => {
+    const group = customerGroups.find((item) => item.key === groupKey)
+    if (!group) return
+    const matchingCourses = sortCourses(availableCourses.filter((course) => group.matches(course)))
+    const weekdays = getWeekdays(matchingCourses)
+    setSelectedGroupKey(groupKey)
+    setSelectedWeekday(null)
+    setScreen(weekdays.length >= 3 && matchingCourses.length >= 6 ? 'days' : 'courses')
+  }
+
+  const openDay = (weekday: string) => {
+    setSelectedWeekday(weekday)
     setScreen('courses')
   }
 
@@ -227,13 +325,13 @@ function App() {
 
       {screen === 'home' && (
         <main className="page kiosk-home">
-          <section className="hero-card">
+          <section className="hero-card compact-hero">
             <p className="eyebrow">Programm 2. Halbjahr 2026</p>
-            <h1>Für welchen Kurs möchten Sie sich anmelden?</h1>
-            <p>Wählen Sie zuerst den passenden Kursbereich. Angezeigt werden ausschließlich Kurse mit freien Plätzen.</p>
+            <h1>Welcher Kurs passt zu Ihnen?</h1>
+            <p>Wählen Sie einen Kursbereich. Danach führen wir Sie Schritt für Schritt zum passenden Termin.</p>
           </section>
 
-          {availableCourses.length === 0 ? (
+          {availableCourses.length === 0 && (
             <section className="setup-card">
               <div>
                 <span className="status-dot" />
@@ -244,33 +342,31 @@ function App() {
                 Verwaltung öffnen
               </button>
             </section>
-          ) : (
-            <section className="category-grid" aria-label="Kursbereiche">
-              {courseCategories.map((category) => {
-                const count = availableCourses.filter((course) => course.category === category).length
-                if (count === 0) return null
-                return (
-                  <button className="category-card" type="button" key={category} onClick={() => openCategory(category)}>
-                    <span className="category-icon" aria-hidden="true">
-                      {category === 'Kinder & Jugend im Bad'
-                        ? '🏊'
-                        : category === 'Fitness & Halle'
-                          ? '🏋️'
-                          : category === 'Wasser & Schwimmen Erwachsene'
-                            ? '💧'
-                            : category === 'Wellness & Entspannung'
-                              ? '🧘'
-                              : category === 'AOK-Kurse'
-                                ? '💚'
-                                : '❤'}
-                    </span>
-                    <strong>{category}</strong>
-                    <span>{count} buchbare {count === 1 ? 'Kurszeit' : 'Kurszeiten'}</span>
-                  </button>
-                )
-              })}
-            </section>
           )}
+
+          <section className="category-grid image-category-grid" aria-label="Kursbereiche">
+            {customerGroups.map((group) => {
+              const count = availableCourses.filter((course) => group.matches(course)).length
+              return (
+                <button
+                  className={`category-card image-category-card category-${group.key}`}
+                  type="button"
+                  key={group.key}
+                  onClick={() => openGroup(group.key)}
+                  disabled={count === 0}
+                >
+                  <span className="category-photo" style={{ backgroundPosition: group.spritePosition }} aria-hidden="true" />
+                  <span className="category-shade" aria-hidden="true" />
+                  <span className="category-card-content">
+                    <strong>{group.title}</strong>
+                    <span>{group.description}</span>
+                    <small>{count > 0 ? `${count} buchbare ${count === 1 ? 'Kurszeit' : 'Kurszeiten'}` : 'Aktuell keine freien Plätze'}</small>
+                  </span>
+                  <span className="category-arrow" aria-hidden="true">→</span>
+                </button>
+              )
+            })}
+          </section>
 
           <footer className="kiosk-footer">
             <span>Sport- und Gesundheitszentrum Altenessen e.V.</span>
@@ -281,16 +377,56 @@ function App() {
         </main>
       )}
 
-      {screen === 'courses' && selectedCategory && (
+      {screen === 'days' && selectedGroup && (
         <main className="page">
           <div className="page-heading">
             <button className="back-button" type="button" onClick={() => setScreen('home')}>
               ← Zurück
             </button>
             <div>
-              <p className="eyebrow">Kursbereich</p>
-              <h1>{selectedCategory}</h1>
-              <p>Bitte wählen Sie Ihren gewünschten Termin.</p>
+              <p className="eyebrow">{selectedGroup.title}</p>
+              <h1>Wann möchten Sie trainieren?</h1>
+              <p>Wählen Sie einen Wochentag. Danach sehen Sie nur noch die passenden Kurstermine.</p>
+            </div>
+          </div>
+
+          <section className="day-grid" aria-label="Wochentage">
+            {groupWeekdays.map((weekday) => {
+              const count = selectedGroupCourses.filter((course) => course.weekday === weekday).length
+              return (
+                <button className="day-card" type="button" key={weekday} onClick={() => openDay(weekday)}>
+                  <span>{weekday}</span>
+                  <strong>{count}</strong>
+                  <small>{count === 1 ? 'Kurszeit' : 'Kurszeiten'}</small>
+                  <span className="day-arrow">→</span>
+                </button>
+              )
+            })}
+          </section>
+
+          <button className="all-courses-button" type="button" onClick={() => { setSelectedWeekday(null); setScreen('courses') }}>
+            Alle Termine in {selectedGroup.title} anzeigen
+          </button>
+        </main>
+      )}
+
+      {screen === 'courses' && selectedGroup && (
+        <main className="page">
+          <div className="page-heading">
+            <button
+              className="back-button"
+              type="button"
+              onClick={() => {
+                setSelectedWeekday(null)
+                setScreen(shouldChooseDay ? 'days' : 'home')
+              }}
+            >
+              ← Zurück
+            </button>
+            <div>
+              <p className="eyebrow">{selectedGroup.title}</p>
+              <h1>{selectedWeekday ? `${selectedWeekday}: passende Kurse` : 'Kurs auswählen'}</h1>
+              <p>{selectedWeekday ? 'Bitte wählen Sie Ihren gewünschten Termin.' : 'Hier finden Sie alle aktuell buchbaren Termine dieses Bereichs.'}</p>
             </div>
           </div>
 
