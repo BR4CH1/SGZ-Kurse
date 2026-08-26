@@ -28,3 +28,5 @@ jobs:
           git add src/App.tsx src/styles.css
           git commit -m "Upgrade kiosk navigation with image tiles [skip ci]"
           git push origin feature/kiosk-image-tiles
+
+# Trigger marker: 2026-08-26
