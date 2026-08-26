@@ -193,41 +193,158 @@ select:focus-visible {
   margin-top: 26px;
 }
 
-.category-card {
-  min-height: 200px;
-  padding: 26px;
+.image-category-card {
+  position: relative;
+  min-height: 255px;
+  padding: 0;
+  overflow: hidden;
+  border: 0;
+  border-radius: 26px;
+  background: #163944;
+  color: white;
+  cursor: pointer;
+  text-align: left;
+  box-shadow: 0 12px 38px rgba(21, 57, 67, 0.16);
+  transition: transform 160ms ease, box-shadow 160ms ease;
+}
+
+.image-category-card:not(:disabled):hover,
+.image-category-card:not(:disabled):active {
+  transform: translateY(-3px);
+  box-shadow: 0 20px 46px rgba(21, 57, 67, 0.24);
+}
+
+.image-category-card:disabled {
+  cursor: not-allowed;
+  filter: grayscale(0.55);
+  opacity: 0.68;
+}
+
+.category-photo,
+.category-shade {
+  position: absolute;
+  inset: 0;
+}
+
+.category-photo {
+  background-image: url('/SGZ-Kurse/course-tiles.webp');
+  background-size: 300% 200%;
+  background-repeat: no-repeat;
+  transform: scale(1.015);
+  transition: transform 220ms ease;
+}
+
+.image-category-card:not(:disabled):hover .category-photo {
+  transform: scale(1.05);
+}
+
+.category-shade {
+  background: linear-gradient(180deg, rgba(7, 35, 43, 0.04) 25%, rgba(7, 35, 43, 0.9) 100%);
+}
+
+.category-card-content {
+  position: absolute;
+  z-index: 2;
+  left: 22px;
+  right: 58px;
+  bottom: 20px;
+  display: grid;
+  gap: 5px;
+}
+
+.category-card-content strong {
+  font-size: clamp(1.35rem, 2.5vw, 1.75rem);
+  line-height: 1.05;
+}
+
+.category-card-content > span {
+  color: rgba(255, 255, 255, 0.9);
+  font-weight: 600;
+}
+
+.category-card-content small {
+  margin-top: 4px;
+  color: #ccecf2;
+  font-weight: 750;
+}
+
+.category-arrow {
+  position: absolute;
+  z-index: 3;
+  right: 20px;
+  bottom: 20px;
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.92);
+  color: var(--sgz-dark);
+  font-size: 1.25rem;
+  font-weight: 900;
+}
+
+.day-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.day-card {
+  position: relative;
+  min-height: 150px;
+  padding: 22px;
   border: 1px solid var(--line);
-  border-radius: 24px;
+  border-radius: 20px;
   background: white;
   color: var(--ink);
   cursor: pointer;
   text-align: left;
-  display: flex;
-  flex-direction: column;
-  justify-content: flex-end;
-  gap: 8px;
-  box-shadow: 0 10px 34px rgba(21, 57, 67, 0.06);
-  transition: transform 140ms ease, border-color 140ms ease, box-shadow 140ms ease;
+  display: grid;
+  align-content: end;
+  gap: 3px;
+  box-shadow: 0 8px 26px rgba(21, 57, 67, 0.06);
 }
 
-.category-card:hover,
-.category-card:active {
-  transform: translateY(-2px);
-  border-color: #a7ccd5;
-  box-shadow: 0 16px 40px rgba(21, 57, 67, 0.12);
+.day-card:hover,
+.day-card:active {
+  border-color: #9fcbd5;
+  box-shadow: 0 14px 34px rgba(21, 57, 67, 0.12);
 }
 
-.category-icon {
-  font-size: 2.25rem;
-  margin-bottom: auto;
-}
-
-.category-card strong {
+.day-card > span:first-child {
   font-size: 1.25rem;
+  font-weight: 850;
 }
 
-.category-card span:last-child {
+.day-card strong {
+  font-size: 2.2rem;
+  color: var(--sgz);
+}
+
+.day-card small {
   color: var(--muted);
+}
+
+.day-arrow {
+  position: absolute;
+  top: 18px;
+  right: 18px;
+  color: var(--sgz);
+  font-size: 1.35rem;
+  font-weight: 900;
+}
+
+.all-courses-button {
+  margin-top: 18px;
+  min-height: 52px;
+  padding: 12px 18px;
+  border: 1px solid #bdd6dc;
+  border-radius: 14px;
+  background: #edf5f7;
+  color: var(--sgz-dark);
+  cursor: pointer;
+  font-weight: 800;
 }
 
 .kiosk-footer {
@@ -762,7 +879,8 @@ input[type='radio'] {
 
 @media (max-width: 920px) {
   .category-grid,
-  .stats-grid {
+  .stats-grid,
+  .day-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
@@ -809,6 +927,7 @@ input[type='radio'] {
 
   .category-grid,
   .stats-grid,
+  .day-grid,
   .two-columns,
   .three-columns,
   .payment-options,
@@ -816,8 +935,12 @@ input[type='radio'] {
     grid-template-columns: 1fr;
   }
 
-  .category-card {
-    min-height: 160px;
+  .image-category-card {
+    min-height: 210px;
+  }
+
+  .day-card {
+    min-height: 125px;
   }
 
   .setup-card,
@@ -855,7 +978,8 @@ input[type='radio'] {
 }
 
 @media (pointer: coarse) {
-  .category-card,
+  .image-category-card,
+  .day-card,
   .course-card {
     min-height: 180px;
   }
